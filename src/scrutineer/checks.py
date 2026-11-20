@@ -176,3 +176,22 @@ def check_door_traction(df, limit_n=100.0, close_grace_s=2, requirement_id="REQ-
     violations = _find_violations(df, bad, force)
     return _build_result(df, requirement_id, violations, could_hide_violation,
                          "highest traction force (N)")
+    
+    
+def check_power_range(df, min_kw=-340.0, max_kw=370.0, requirement_id="REQ-004"):
+    """Electric power demand must stay within the motors' documented capacity
+    (dataset paper, Statistical analysis)."""
+    needed = ["time_iso", "electric_powerDemand"]
+    missing = _missing_columns(df, needed, requirement_id)
+    if missing:
+        return missing
+
+    kw = df["electric_powerDemand"] / 1000   # the column is in watts
+
+    bad = (kw < min_kw) | (kw > max_kw)
+    could_hide_violation = kw.isna()   # an unknown value could be out of range
+
+    # worst_value is the largest power in either direction, so both kinds of violation are visible
+    violations = _find_violations(df, bad, kw.abs())
+    return _build_result(df, requirement_id, violations, could_hide_violation,
+                         "largest power magnitude (kW)")

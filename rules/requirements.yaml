@@ -47,3 +47,23 @@
     at least 99% of rows. All values above 100 N fell in the last 2 s before closing.
   notes: Pushing only in the last 2 s before closing would not be caught.
   check: check_door_traction
+
+- id: REQ-004
+  text: Electric power demand must stay between -340 kW and +370 kW.
+  signals: [electric_powerDemand]
+  parameters:
+    min_kw: -340
+    max_kw: 370
+  source_type: [dataset_documentation, observed_from_data]
+  source: >
+    ZTBus dataset paper, Technical Validation, "Statistical analysis": combined motor
+    capacity of about 320 kW in both directions, plus 20 to 30 kW auxiliary consumption,
+    which gives a documented range of about -320 to +350 kW.
+    Margin: these are approximate figures. With the strict range, 7 of 10 sample journeys
+    exceeded +350 kW by up to 11.7 kW during normal acceleration, so a 20 kW margin was
+    added on each side. The margin was chosen after seeing the data.
+  notes: >
+    This rule catches implausible values (spikes, unit or sign errors), not small
+    overshoots of the approximate documented peak.
+  check: check_power_range
+

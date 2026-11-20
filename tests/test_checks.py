@@ -1,6 +1,6 @@
 import pandas as pd
 
-from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, check_door_speed, check_halt_brake, check_door_traction)
+from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, check_door_speed, check_halt_brake, check_door_traction, check_power_range)
 
 
 def make_df(door, speed_ms):
@@ -116,3 +116,36 @@ def test_missing_force_while_door_open_is_inconclusive():
 
 def test_door_open_at_end_of_recording_gets_no_tolerance():
     assert check_door_traction(make_force_df([1, 1, 1], [0, 0, 5000])).status == FAIL
+    
+    
+# REQ-004 power range
+def make_power_df(watts):
+    return pd.DataFrame({
+        "time_iso": pd.date_range("2024-01-01", periods=len(watts), freq="s", tz="UTC"),
+        "electric_powerDemand": watts,
+    })
+
+
+def test_power_inside_range_passes():
+    assert check_power_range(make_power_df([0, 20_000, -300_000, 340_000])).status == PASS
+
+
+def test_power_boundary_upper():
+    assert check_power_range(make_power_df([369_900])).status == PASS
+    assert check_power_range(make_power_df([370_100])).status == FAIL
+
+
+def test_power_boundary_lower():
+    assert check_power_range(make_power_df([-339_900])).status == PASS
+    assert check_power_range(make_power_df([-340_100])).status == FAIL
+
+
+def test_missing_power_is_inconclusive():
+    assert check_power_range(make_power_df([0, float("nan")])).status == INCONCLUSIVE
+
+
+def test_out_of_range_stretch_becomes_one_violation():
+    r = check_power_range(make_power_df([0, 400_000, 410_000, 0]))
+    assert r.status == FAIL
+    assert len(r.violations) == 1
+    assert r.violations[0].worst_value == 410
