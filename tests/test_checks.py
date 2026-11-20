@@ -1,7 +1,6 @@
 import pandas as pd
 
-from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, check_door_speed, check_halt_brake)
-                            #    check_door_traction, check_halt_brake)
+from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, check_door_speed, check_halt_brake, check_door_traction)
 
 
 def make_df(door, speed_ms):
@@ -84,3 +83,36 @@ def test_blank_flag_during_grace_is_inconclusive():
 def test_dead_signal_is_inconclusive():
     df = make_brake_df([5, 0, 0, 0, 0, 0, 5], [0] * 7)
     assert check_halt_brake(df).status == INCONCLUSIVE
+    
+    
+# REQ-003 door and traction force
+def make_force_df(door, force):
+    return pd.DataFrame({
+        "time_iso": pd.date_range("2024-01-01", periods=len(door), freq="s", tz="UTC"),
+        "status_doorIsOpen": door,
+        "traction_tractionForce": force,
+    })
+
+
+def test_no_force_while_door_open_passes():
+    assert check_door_traction(make_force_df([0, 1, 1, 0], [5000, 0, 0, 5000])).status == PASS
+
+
+def test_push_while_door_open_fails():
+    assert check_door_traction(make_force_df([1, 1, 1, 1, 1, 0], [0, 5000, 0, 0, 0, 0])).status == FAIL
+
+
+def test_push_in_last_two_seconds_before_closing_is_ignored():
+    assert check_door_traction(make_force_df([1, 1, 1, 1, 0], [0, 0, 5000, 5000, 5000])).status == PASS
+
+
+def test_push_three_seconds_before_closing_fails():
+    assert check_door_traction(make_force_df([1, 1, 1, 1, 0], [0, 5000, 0, 0, 0])).status == FAIL
+
+
+def test_missing_force_while_door_open_is_inconclusive():
+    assert check_door_traction(make_force_df([1, 1, 1, 1, 0], [0, float("nan"), 0, 0, 0])).status == INCONCLUSIVE
+
+
+def test_door_open_at_end_of_recording_gets_no_tolerance():
+    assert check_door_traction(make_force_df([1, 1, 1], [0, 0, 5000])).status == FAIL

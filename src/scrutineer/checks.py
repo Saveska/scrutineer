@@ -144,3 +144,35 @@ def check_halt_brake(df, grace_s=3, requirement_id="REQ-002"):
 
     violations = _find_violations(df, bad, stop_length)
     return _build_result(df, requirement_id, violations, could_hide_violation, label)
+
+
+def check_door_traction(df, limit_n=100.0, close_grace_s=2, requirement_id="REQ-003"):
+    """The drive must not push the bus (traction force above limit_n) while a door is open,
+    except in the last close_grace_s seconds before the door closes. Illustrative interlock
+    rule inspired by UN R107; limit_n and close_grace_s are observed from the data."""
+    needed = ["time_iso", "status_doorIsOpen", "traction_tractionForce"]
+    missing = _missing_columns(df, needed, requirement_id)
+    if missing:
+        return missing
+
+    door_open = df["status_doorIsOpen"] == 1
+    door_unknown = df["status_doorIsOpen"].isna()
+    force = df["traction_tractionForce"]
+
+    # Door-open rows in the last close_grace_s seconds before the door closes.
+    # fill_value=True: if the recording ends with the door open, it never closes,
+    # so those last rows get no tolerance.
+    closes_soon = pd.Series(False, index=df.index)
+    for k in range(1, close_grace_s + 1):
+        closes_soon |= ~door_open.shift(-k, fill_value=True)
+    closing = door_open & closes_soon
+
+    bad = door_open & ~closing & (force > limit_n)
+    could_hide_violation = (
+        (door_unknown & ~(force <= limit_n))
+        | (door_open & ~closing & force.isna())
+    )
+
+    violations = _find_violations(df, bad, force)
+    return _build_result(df, requirement_id, violations, could_hide_violation,
+                         "highest traction force (N)")
