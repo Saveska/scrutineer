@@ -67,3 +67,23 @@
     overshoots of the approximate documented peak.
   check: check_power_range
 
+- id: REQ-005
+  text: Vehicle control unit signals must have no gap of 10 seconds or more.
+  signals: [electric_powerDemand, odometry_vehicleSpeed, odometry_steeringAngle,
+            odometry_articulationAngle, odometry_wheelSpeed_fl, odometry_wheelSpeed_fr,
+            odometry_wheelSpeed_ml, odometry_wheelSpeed_mr, odometry_wheelSpeed_rl,
+            odometry_wheelSpeed_rr, status_doorIsOpen, status_gridIsAvailable,
+            status_haltBrakeIsActive, status_parkBrakeIsActive,
+            traction_brakePressure, traction_tractionForce]
+  parameters:
+    max_gap_s: 10
+  source_type: [dataset_documentation]
+  source: >
+    ZTBus dataset paper, Technical Validation, selection criteria: missions with a gap of
+    at least 10 s in any vehicle control unit data were rejected. GNSS, ITCS (passengers,
+    route, stop) and ambient temperature are excluded, since the paper describes them as
+    possibly missing in normal operation.
+  notes: >
+    Only checks for empty values. If whole rows were missing (a jump in the
+    timestamps), this rule would not notice, because no timing rule was added.
+  check: check_signal_gaps

@@ -1,7 +1,15 @@
 import pandas as pd
 
-from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, check_door_speed, check_halt_brake, check_door_traction, check_power_range)
+from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, 
+                               check_door_speed, 
+                               check_halt_brake, 
+                               check_door_traction, 
+                               check_power_range,
+                               check_signal_gaps)
 
+
+NAN = float("nan")
+COLS = ["odometry_vehicleSpeed"]
 
 def make_df(door, speed_ms):
     return pd.DataFrame({
@@ -41,6 +49,7 @@ def test_missing_column_is_inconclusive():
     df = make_df([1], [0.0]).drop(columns=["odometry_vehicleSpeed"])
     assert check_door_speed(df).status == INCONCLUSIVE
 
+# ===============================================================================================
 
 # REQ-002 halt brake
 def make_brake_df(speed, halt):
@@ -85,6 +94,9 @@ def test_dead_signal_is_inconclusive():
     assert check_halt_brake(df).status == INCONCLUSIVE
     
     
+# ===============================================================================================
+
+    
 # REQ-003 door and traction force
 def make_force_df(door, force):
     return pd.DataFrame({
@@ -117,6 +129,8 @@ def test_missing_force_while_door_open_is_inconclusive():
 def test_door_open_at_end_of_recording_gets_no_tolerance():
     assert check_door_traction(make_force_df([1, 1, 1], [0, 0, 5000])).status == FAIL
     
+# ===============================================================================================
+
     
 # REQ-004 power range
 def make_power_df(watts):
@@ -149,3 +163,36 @@ def test_out_of_range_stretch_becomes_one_violation():
     assert r.status == FAIL
     assert len(r.violations) == 1
     assert r.violations[0].worst_value == 410
+    
+# ===============================================================================================
+
+
+# REQ-005 signal gaps
+def make_gap_df(values):
+    return pd.DataFrame({
+        "time_iso": pd.date_range("2024-01-01", periods=len(values), freq="s", tz="UTC"),
+        "odometry_vehicleSpeed": values,
+    })
+
+
+def test_no_gaps_passes():
+    assert check_signal_gaps(make_gap_df([1.0] * 20), columns=COLS).status == PASS
+
+
+def test_gap_of_9_seconds_passes():
+    df = make_gap_df([1.0] + [NAN] * 9 + [1.0])
+    assert check_signal_gaps(df, columns=COLS).status == PASS
+
+
+def test_gap_of_10_seconds_fails():
+    df = make_gap_df([1.0] + [NAN] * 10 + [1.0])
+    r = check_signal_gaps(df, columns=COLS)
+    assert r.status == FAIL
+    assert r.violations[0].worst_value == 10
+    assert "odometry_vehicleSpeed" in r.note
+
+
+def test_gap_in_unchecked_column_is_ignored():
+    df = make_gap_df([1.0] * 12)
+    df["gnss_latitude"] = [1.0] + [NAN] * 10 + [1.0]
+    assert check_signal_gaps(df, columns=COLS).status == PASS

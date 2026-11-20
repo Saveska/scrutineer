@@ -5,6 +5,15 @@ import pandas as pd
 PASS, FAIL, INCONCLUSIVE = "PASS", "FAIL", "INCONCLUSIVE"
 
 
+VCU_COLUMNS = [
+    "electric_powerDemand", "odometry_vehicleSpeed", "odometry_steeringAngle",
+    "odometry_articulationAngle", "odometry_wheelSpeed_fl", "odometry_wheelSpeed_fr",
+    "odometry_wheelSpeed_ml", "odometry_wheelSpeed_mr", "odometry_wheelSpeed_rl",
+    "odometry_wheelSpeed_rr", "status_doorIsOpen", "status_gridIsAvailable",
+    "status_haltBrakeIsActive", "status_parkBrakeIsActive",
+    "traction_brakePressure", "traction_tractionForce",
+]
+
 @dataclass
 class Violation:
     """One continuous stretch of rows that break a rule."""
@@ -25,6 +34,7 @@ class CheckResult:
     violations: list = field(default_factory=list)
     note: str = ""
     worst_value_label: str = ""  # what Violation.worst_value means, e.g. "highest speed (km/h)"
+
 
 
 # ---------------------------------------------------------------------------
@@ -195,3 +205,36 @@ def check_power_range(df, min_kw=-340.0, max_kw=370.0, requirement_id="REQ-004")
     violations = _find_violations(df, bad, kw.abs())
     return _build_result(df, requirement_id, violations, could_hide_violation,
                          "largest power magnitude (kW)")
+    
+    
+
+
+def check_signal_gaps(df, max_gap_s=10, columns=VCU_COLUMNS, requirement_id="REQ-005"):
+    """No vehicle control unit signal may be missing for max_gap_s seconds or more
+    (dataset paper, Technical Validation)."""
+    needed = ["time_iso"] + list(columns)
+    missing = _missing_columns(df, needed, requirement_id)
+    if missing:
+        return missing
+
+    # For every row, the length of the longest gap it is part of, across all columns.
+    gap_length = pd.Series(0, index=df.index)
+    columns_with_gaps = []
+    for col in columns:
+        isna = df[col].isna()
+        run_id = (isna != isna.shift(fill_value=False)).cumsum()
+        length = isna.groupby(run_id).transform("sum")   # 0 for rows that are not missing
+        if (length >= max_gap_s).any():
+            columns_with_gaps.append(col)
+        gap_length = pd.concat([gap_length, length], axis=1).max(axis=1)
+
+    bad = gap_length >= max_gap_s
+    # Here the missing data is the violation itself, so nothing can be hidden.
+    could_hide_violation = pd.Series(False, index=df.index)
+
+    violations = _find_violations(df, bad, gap_length)
+    result = _build_result(df, requirement_id, violations, could_hide_violation,
+                           "longest gap (s)")
+    if columns_with_gaps:
+        result.note = "gaps in: " + ", ".join(columns_with_gaps)
+    return result
