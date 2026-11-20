@@ -1,6 +1,6 @@
 import pandas as pd
 
-from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, check_door_speed)
+from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS, check_door_speed, check_halt_brake)
                             #    check_door_traction, check_halt_brake)
 
 
@@ -43,3 +43,44 @@ def test_missing_column_is_inconclusive():
     assert check_door_speed(df).status == INCONCLUSIVE
 
 
+# REQ-002 halt brake
+def make_brake_df(speed, halt):
+    return pd.DataFrame({
+        "time_iso": pd.date_range("2024-01-01", periods=len(speed), freq="s", tz="UTC"),
+        "odometry_vehicleSpeed": speed,
+        "status_haltBrakeIsActive": halt,
+    })
+
+
+def test_brake_on_within_grace_passes():
+    df = make_brake_df([5, 0, 0, 0, 0, 0, 5], [0, 0, 1, 1, 1, 1, 0])
+    assert check_halt_brake(df).status == PASS
+
+
+def test_long_stop_without_brake_fails():
+    df = make_brake_df([5, 0, 0, 0, 0, 0, 5], [1, 0, 0, 0, 0, 0, 0])
+    r = check_halt_brake(df)
+    assert r.status == FAIL
+    assert len(r.violations) == 1
+    assert r.violations[0].worst_value == 5   # stood still for 5 s
+
+
+def test_brake_too_late_fails():
+    # brake comes on at second 4 of the stop, one second after the grace period
+    df = make_brake_df([5, 0, 0, 0, 0, 0, 0, 5], [1, 0, 0, 0, 0, 1, 1, 0])
+    assert check_halt_brake(df).status == FAIL
+
+
+def test_short_stop_is_ignored():
+    df = make_brake_df([5, 0, 0, 5, 5], [1, 0, 0, 0, 0])
+    assert check_halt_brake(df).status == PASS
+
+
+def test_blank_flag_during_grace_is_inconclusive():
+    df = make_brake_df([5, 0, 0, 0, 0, 0, 5], [1, float("nan"), 0, 0, 0, 0, 0])
+    assert check_halt_brake(df).status == INCONCLUSIVE
+
+
+def test_dead_signal_is_inconclusive():
+    df = make_brake_df([5, 0, 0, 0, 0, 0, 5], [0] * 7)
+    assert check_halt_brake(df).status == INCONCLUSIVE

@@ -14,3 +14,18 @@
     the doors shall be prevented from opening if the vehicle moves faster than 5 km/h.
     Clause number taken from an older revision, check against the current one.
   check: check_door_speed
+- id: REQ-002
+  text: The halt brake must be active once the bus has been standing still for more than 3 seconds.
+  signals: [status_haltBrakeIsActive, odometry_vehicleSpeed]
+  parameters:
+    grace_s: 3 
+  source_type: [dataset_documentation, observed_from_data]
+  source: >
+    Rule: ZTBus dataset paper, Table 1, description of status_haltBrakeIsActive,
+    which says the halt brake is activated automatically whenever the bus stands still.
+    Grace period: observed in the 9 sample journeys where the signal was active,
+    99.85% of stops where the brake came on did so within 3 seconds.
+  notes: >
+    Standing still means odometry_vehicleSpeed <= 0. If the brake flag is never
+    active in a journey (seen in 1 of 10 sample journeys), the result is INCONCLUSIVE, not FAIL.
+  check: check_halt_brake

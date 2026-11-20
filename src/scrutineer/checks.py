@@ -105,3 +105,42 @@ def check_door_speed(df, limit_kmh=5.0, requirement_id="REQ-001"):
     violations = _find_violations(df, bad, speed_kmh)
     return _build_result(df, requirement_id, violations, could_hide_violation,
                          "highest speed (km/h)")
+    
+    
+def check_halt_brake(df, grace_s=3, requirement_id="REQ-002"):
+    """Once the bus has stood still for more than grace_s seconds, the halt brake must
+    be active (dataset paper, Table 1). grace_s = 3 is observed from the data."""
+    needed = ["time_iso", "odometry_vehicleSpeed", "status_haltBrakeIsActive"]
+    missing = _missing_columns(df, needed, requirement_id)
+    if missing:
+        return missing
+
+    halt = df["status_haltBrakeIsActive"]
+    label = "standstill length (s)"
+
+    # A flag that never switches on cannot confirm or refute the rule.
+    if not (halt == 1).any():
+        return CheckResult(requirement_id, INCONCLUSIVE, len(df), 0,
+                           note="halt brake flag is never active in this recording",
+                           worst_value_label=label)
+
+    stopped = df["odometry_vehicleSpeed"] <= 0
+    run_id = (stopped != stopped.shift(fill_value=False)).cumsum()
+    # For every row, the length of the standstill it belongs to (0 while moving).
+    stop_length = stopped.groupby(run_id).transform("sum")
+
+    bad = pd.Series(False, index=df.index)
+    could_hide_violation = pd.Series(False, index=df.index)
+    for _, block in df[stopped].groupby(run_id[stopped]):
+        if len(block) <= grace_s:
+            continue  # too short to demand the brake
+        window = halt[block.index[: grace_s + 1]]
+        if (window == 1).any():
+            continue  # brake came on in time
+        if window.isna().any():
+            could_hide_violation[block.index] = True  # a blank could be hiding the brake
+        else:
+            bad[block.index] = True
+
+    violations = _find_violations(df, bad, stop_length)
+    return _build_result(df, requirement_id, violations, could_hide_violation, label)
