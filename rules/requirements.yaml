@@ -1,0 +1,16 @@
+# Scrutineer requirements.
+# Each entry says what must hold, which signals it uses, where the rule comes from,
+# and which function in src/scrutineer/checks.py checks it.
+# source_type is one of: regulation, dataset_documentation, observed_from_data, illustrative
+
+- id: REQ-001
+  text: No door may be open while the bus moves faster than 5 km/h.
+  signals: [status_doorIsOpen, odometry_vehicleSpeed]
+  parameters:
+    limit_kmh: 5.0
+  source_type: regulation
+  source: >
+    UN Regulation No. 107 (buses), Annex 3, power-operated service doors:
+    the doors shall be prevented from opening if the vehicle moves faster than 5 km/h.
+    Clause number taken from an older revision, check against the current one.
+  check: check_door_speed
