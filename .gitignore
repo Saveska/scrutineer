@@ -7,3 +7,4 @@ data/
 .streamlit/secrets.toml
 *.egg-info/
 notebooks/first_look.ipynb
+README.md
