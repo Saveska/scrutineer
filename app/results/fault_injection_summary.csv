@@ -1,0 +1,8 @@
+fault,target,expected,trials,caught,missed,catch_rate_%
+door stuck open,REQ-001,caught,50,50,0,100.0
+"drive pushes, door open",REQ-003,caught,50,50,0,100.0
+power spike,REQ-004,caught,50,50,0,100.0
+long speed dropout (15 s),REQ-005,caught,50,50,0,100.0
+short speed dropout (5 s),REQ-005,missed,50,0,50,0.0
+frozen speed (20 s),none,missed,50,0,50,0.0
+brake signal lost,REQ-002,caught,45,45,0,100.0

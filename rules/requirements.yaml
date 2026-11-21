@@ -10,9 +10,9 @@
     limit_kmh: 5.0
   source_type: regulation
   source: >
-    UN Regulation No. 107 (buses), Annex 3, power-operated service doors:
-    the doors shall be prevented from opening if the vehicle moves faster than 5 km/h.
-    Clause number taken from an older revision, check against the current one.
+    UN Regulation R107 (EUR-Lex 2015 version), Annex 3 para 7.6.5.1.9:
+    the doors shall be prevented from opening if the vehicle moves at a higher speed than 5 km/h.
+    
   check: check_door_speed
 
 - id: REQ-002
