@@ -22,7 +22,7 @@
     grace_s: 3 
   source_type: [dataset_documentation, observed_from_data]
   source: >
-    Rule: ZTBus dataset paper, Table 1, description of status_haltBrakeIsActive,
+    ZTBus dataset paper, Table 1, description of status_haltBrakeIsActive,
     which says the halt brake is activated automatically whenever the bus stands still.
     Grace period: observed in the 9 sample journeys where the signal was active,
     99.85% of stops where the brake came on did so within 3 seconds.
