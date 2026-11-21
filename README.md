@@ -8,9 +8,6 @@ every draft, and the model never decides whether a recording passes.
 
 **Live app:** https://scrutineer-fj93o7xwbz7cr7wybhq2ro.streamlit.app/
 
-I built Scrutineer as a portfolio project to learn how requirements-based verification works
-in practice, using public data from real vehicles.
-
 ## Why
 
 Verifying vehicle software means checking recordings against many written requirements.
