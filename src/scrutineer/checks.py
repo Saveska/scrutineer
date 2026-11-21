@@ -238,3 +238,51 @@ def check_signal_gaps(df, max_gap_s=10, columns=VCU_COLUMNS, requirement_id="REQ
     if columns_with_gaps:
         result.note = "gaps in: " + ", ".join(columns_with_gaps)
     return result
+
+
+# ===========================================================================================
+# ===========================================================================================
+
+
+def check_limit_while_flag(df, flag, signal, max_value, requirement_id="REQ-X"):
+    """General rule type: while `flag` is 1, `signal` must not exceed max_value,
+    in the signal's own unit. REQ-001 and REQ-003 have this shape."""
+    needed = ["time_iso", flag, signal]
+    missing = _missing_columns(df, needed, requirement_id)
+    if missing:
+        return missing
+
+    flag_on = df[flag] == 1
+    flag_unknown = df[flag].isna()
+    value = df[signal]
+
+    bad = flag_on & (value > max_value)
+    could_hide_violation = (flag_unknown & ~(value <= max_value)) | (flag_on & value.isna())
+
+    violations = _find_violations(df, bad, value)
+    return _build_result(df, requirement_id, violations, could_hide_violation,
+                         f"highest {signal}")
+
+
+def check_signal_range(df, signal, min_value=None, max_value=None, requirement_id="REQ-X"):
+    """General rule type: `signal` must stay between min_value and max_value,
+    in its own unit. Either bound can be None."""
+    needed = ["time_iso", signal]
+    missing = _missing_columns(df, needed, requirement_id)
+    if missing:
+        return missing
+
+    value = df[signal]
+    bad = pd.Series(False, index=df.index)
+    outside = pd.Series(0.0, index=df.index)   # how far outside the range each row is
+    if min_value is not None:
+        bad |= value < min_value
+        outside = outside + (min_value - value).clip(lower=0)
+    if max_value is not None:
+        bad |= value > max_value
+        outside = outside + (value - max_value).clip(lower=0)
+    could_hide_violation = value.isna()
+
+    violations = _find_violations(df, bad, outside)
+    return _build_result(df, requirement_id, violations, could_hide_violation,
+                         f"largest distance outside the range ({signal} units)")

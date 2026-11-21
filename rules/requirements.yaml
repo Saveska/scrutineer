@@ -1,7 +1,7 @@
 # Scrutineer requirements.
 # Each entry says what must hold, which signals it uses, where the rule comes from,
 # and which function in src/scrutineer/checks.py checks it.
-# source_type is one of: regulation, dataset_documentation, observed_from_data, illustrative
+# source_type is one of: regulation, dataset_documentation, observed_from_data, illustrative, ai_drafted
 
 - id: REQ-001
   text: No door may be open while the bus moves faster than 5 km/h.

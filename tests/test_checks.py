@@ -5,7 +5,9 @@ from scrutineer.checks import (FAIL, INCONCLUSIVE, PASS,
                                check_halt_brake, 
                                check_door_traction, 
                                check_power_range,
-                               check_signal_gaps)
+                               check_signal_gaps,
+                               check_limit_while_flag,
+                               check_signal_range)
 
 
 NAN = float("nan")
@@ -196,3 +198,20 @@ def test_gap_in_unchecked_column_is_ignored():
     df = make_gap_df([1.0] * 12)
     df["gnss_latitude"] = [1.0] + [NAN] * 10 + [1.0]
     assert check_signal_gaps(df, columns=COLS).status == PASS
+    
+    
+# ==================================================================================
+# ==================================================================================
+
+
+# General rule types
+def test_limit_while_flag_matches_door_speed_rule():
+    df = make_df([1, 1], [1.0, 2.0])   # 2.0 m/s = 7.2 km/h
+    r = check_limit_while_flag(df, "status_doorIsOpen", "odometry_vehicleSpeed", 5 / 3.6)
+    assert r.status == FAIL
+
+
+def test_signal_range_with_only_a_maximum():
+    df = make_power_df([0, 500_000])
+    assert check_signal_range(df, "electric_powerDemand", max_value=400_000).status == FAIL
+    assert check_signal_range(df, "electric_powerDemand", max_value=600_000).status == PASS

@@ -1,0 +1,56 @@
+# Expected answers for the AI rule drafting evaluation.
+# Numbers are in the data's units and are compared with a 1% tolerance.
+
+- sentence: No door may be open while the bus moves faster than 5 km/h.
+  expected: {type: check_limit_while_flag, parameters: {flag: status_doorIsOpen, signal: odometry_vehicleSpeed, max_value: 1.3889}}
+
+- sentence: While any door is open, the vehicle speed must stay at or below 3 km/h.
+  expected: {type: check_limit_while_flag, parameters: {flag: status_doorIsOpen, signal: odometry_vehicleSpeed, max_value: 0.8333}}
+
+- sentence: While the park brake is active, the vehicle speed must not exceed 1 km/h.
+  expected: {type: check_limit_while_flag, parameters: {flag: status_parkBrakeIsActive, signal: odometry_vehicleSpeed, max_value: 0.2778}}
+
+- sentence: While the halt brake is active, the traction force must stay below 500 N.
+  expected: {type: check_limit_while_flag, parameters: {flag: status_haltBrakeIsActive, signal: traction_tractionForce, max_value: 500}}
+
+- sentence: While the bus is connected to the overhead grid, power demand must not exceed 350 kW.
+  expected: {type: check_limit_while_flag, parameters: {flag: status_gridIsAvailable, signal: electric_powerDemand, max_value: 350000}}
+
+- sentence: The bus must not drive faster than 70 km/h.
+  expected: {type: check_signal_range, parameters: {signal: odometry_vehicleSpeed, min_value: null, max_value: 19.444}}
+
+- sentence: Electric power demand must stay between -340 kW and 370 kW.
+  expected: {type: check_signal_range, parameters: {signal: electric_powerDemand, min_value: -340000, max_value: 370000}}
+
+- sentence: Traction force must never exceed 50 kN.
+  expected: {type: check_signal_range, parameters: {signal: traction_tractionForce, min_value: null, max_value: 50000}}
+
+- sentence: Ambient temperature readings must stay between -30 °C and 50 °C.
+  expected: {type: check_signal_range, parameters: {signal: temperature_ambient, min_value: 243.15, max_value: 323.15}}
+
+- sentence: Brake line pressure must not exceed 8 bar.
+  expected: {type: check_signal_range, parameters: {signal: traction_brakePressure, min_value: null, max_value: 800000}}
+
+- sentence: The halt brake must engage within 3 seconds once the bus has stopped.
+  expected: {type: check_halt_brake, parameters: {grace_s: 3}}
+
+- sentence: Once the bus has been standing still for more than 5 seconds, the halt brake must be active.
+  expected: {type: check_halt_brake, parameters: {grace_s: 5}}
+
+- sentence: No vehicle signal may be missing for 10 seconds or longer.
+  expected: {type: check_signal_gaps, parameters: {max_gap_s: 10}}
+
+- sentence: Signal dropouts of 30 seconds or more are not allowed.
+  expected: {type: check_signal_gaps, parameters: {max_gap_s: 30}}
+
+- sentence: The doors must open within 2 seconds after the driver presses the door button.
+  expected: cannot_express   # no door button signal in the data
+
+- sentence: The battery temperature must stay below 45 °C.
+  expected: cannot_express   # no battery temperature signal
+
+- sentence: The bus must stop at every scheduled stop.
+  expected: cannot_express   # needs timetable logic, no such rule type
+
+- sentence: The speed must not change by more than 2 m/s within one second.
+  expected: cannot_express   # rate of change is not an available rule type
