@@ -3,9 +3,17 @@ from pathlib import Path
 import pandas as pd
 
 
+# def find_journey_files(data_dir):
+#     """Return all journey CSV files below data_dir, leaving out the metadata table."""
+#     return sorted(p for p in Path(data_dir).rglob("*.csv") if p.name != "metaData.csv")
+
 def find_journey_files(data_dir):
-    """Return all journey CSV files below data_dir, leaving out the metadata table."""
-    return sorted(p for p in Path(data_dir).rglob("*.csv") if p.name != "metaData.csv")
+    """Return all journey CSV files below data_dir (plain or gzip-compressed),
+    leaving out the metadata table."""
+    return sorted(
+        p for p in Path(data_dir).rglob("*")
+        if p.name.endswith((".csv", ".csv.gz")) and not p.name.startswith("metaData")
+    )
 
 
 def load_journey(path):
