@@ -247,7 +247,11 @@ def page_ai():
     if st.button("Draft rule", disabled=used >= MAX_DRAFTS) and sentence.strip():
         st.session_state["drafts_used"] = used + 1
         with st.spinner("Asking the model..."):
-            st.session_state["draft"] = draft_rule(sentence.strip())
+            try:
+                st.session_state["draft"] = draft_rule(sentence.strip())
+            except Exception:
+                st.error("The AI service is busy or unavailable right now. Please try again in a minute.")
+                return
         st.session_state.pop("approved", None)   # a new draft needs a new approval
     if used >= MAX_DRAFTS:
         st.caption("Draft limit for this session reached.")
