@@ -231,6 +231,12 @@ EXAMPLES = [
 
 def use_example(text):
     st.session_state["sentence"] = text
+    
+def reject_draft():
+    st.session_state.pop("draft", None)
+    st.session_state.pop("approved", None)
+    st.session_state["sentence"] = ""
+    st.session_state["rejected"] = True
 
 
 def page_ai():
@@ -285,6 +291,8 @@ def page_ai():
 
     d = st.session_state.get("draft")
     if d is None:
+        if st.session_state.pop("rejected", False):
+            st.info("Draft rejected. Nothing was run. You can write a new requirement and draft again.")
         return
     st.subheader("Draft for review")
     st.text(d.summary())
@@ -292,8 +300,10 @@ def page_ai():
         st.warning("This draft cannot be run.")
         return
 
-    if st.button("Approve and run on all journeys"):
+    approve_col, reject_col = st.columns(2)
+    if approve_col.button("Approve and run on all journeys", use_container_width=True):
         st.session_state["approved"] = to_yaml_entry(d, "AI-1")
+    reject_col.button("Reject this draft", on_click=reject_draft, use_container_width=True)
     entry = st.session_state.get("approved")
     if entry is None:
         return
