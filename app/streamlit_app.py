@@ -11,6 +11,8 @@ from plotly.subplots import make_subplots
 
 from scrutineer.data import find_journey_files, load_journey
 from scrutineer.engine import load_requirements, run_requirements
+from scrutineer.ai import draft_rule, to_yaml_entry
+from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIREMENTS = ROOT / "rules" / "requirements.yaml"
@@ -117,7 +119,6 @@ def api_key_available():
             os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
     except Exception:
         pass   # no secrets file when running locally
-    from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
     return bool(os.environ.get("GEMINI_API_KEY"))
 
@@ -133,13 +134,31 @@ def page_overview():
         "written requirements. Every requirement states where it comes from, and every "
         "result is PASS, FAIL or INCONCLUSIVE, with the exact moments that caused it."
     )
+
     st.subheader("Results on the sample journeys")
+    st.markdown(
+        "The data comes from two electric trolley buses in Zurich, numbered **183** and **208**. "
+        "Each row is one **journey**: a full day of regular service by one bus, recorded once "
+        "per second. The name shows the bus and the date, so `B208_2022-10-26` is bus 208 on "
+        "26 October 2022. These are 10 of the 1,409 journeys in the dataset, from 2019 to 2022. "
+        "Each column is one **requirement** the recordings are checked against."
+    )
+
     table = audit().pivot(index="journey", columns="requirement", values="status")
     st.dataframe(table.style.map(color_status))
+
     st.caption(
-        "FAIL means the recording breaks the rule as written; the cause still needs "
-        "investigation. INCONCLUSIVE means the data was not enough to judge."
+        "**Green = PASS:** every row could be judged, and none broke the rule.  \n"
+        "**Red = FAIL:** at least one moment broke the rule as written. The cause still needs "
+        "investigation, so a FAIL is not proof of a fault.  \n"
+        "**Yellow = INCONCLUSIVE:** missing data could be hiding a violation."
     )
+
+    left, right = st.columns(2) 
+    if left.button("See what each requirement means", use_container_width=True):
+        st.switch_page(requirements_page)
+    if right.button("Explore the moments behind each FAIL", use_container_width=True):
+        st.switch_page(explorer_page)
 
 
 def page_requirements():
@@ -233,18 +252,26 @@ def page_ai():
         st.warning("No API key configured, so drafting is turned off.")
         return
 
-    from scrutineer.ai import draft_rule, to_yaml_entry
 
-    st.write("Try an example:")
-    for example in EXAMPLES:
-        st.button(example, on_click=use_example, args=(example,))
 
-    sentence = st.text_input(
-        "Requirement", key="sentence",
-        placeholder="While the park brake is active, the vehicle speed must not exceed 1 km/h.",
-    )
-    used = st.session_state.get("drafts_used", 0)
-    if st.button("Draft rule", disabled=used >= MAX_DRAFTS) and sentence.strip():
+    with st.container(border=True):
+        st.subheader("Draft a rule")
+        st.write("Try an example:")
+        for example in EXAMPLES:
+            st.button(example, on_click=use_example, args=(example,))
+
+        sentence = st.text_area(
+            "Write a requirement in plain English",
+            key="sentence",
+            height=90,
+            placeholder="Type here",
+        )
+        used = st.session_state.get("drafts_used", 0)
+        draft_clicked = st.button("Draft rule", type="primary", disabled=used >= MAX_DRAFTS)
+        if used >= MAX_DRAFTS:
+            st.caption("Draft limit for this session reached.")
+
+    if draft_clicked and sentence.strip():
         st.session_state["drafts_used"] = used + 1
         with st.spinner("Asking the model..."):
             try:
@@ -252,7 +279,7 @@ def page_ai():
             except Exception:
                 st.error("The AI service is busy or unavailable right now. Please try again in a minute.")
                 return
-        st.session_state.pop("approved", None)   # a new draft needs a new approval
+        st.session_state.pop("approved", None)
     if used >= MAX_DRAFTS:
         st.caption("Draft limit for this session reached.")
 
@@ -292,19 +319,26 @@ def page_ai():
         show_violations(journey(files[name]), results[name], entry, key="ai_violation")
 
 
-PAGES = {
-    "Overview": page_overview,
-    "Requirements": page_requirements,
-    "Journey explorer": page_journey,
-    "Fault injection": page_injection,
-    "AI rule drafting": page_ai,
-}
 
-page = st.sidebar.radio("Page", list(PAGES))
-st.sidebar.markdown("---")
+overview_page = st.Page(page_overview, title="Overview", icon=":material/dashboard:",
+                        url_path="overview", default=True)
+requirements_page = st.Page(page_requirements, title="Requirements", icon=":material/rule:",
+                            url_path="requirements")
+explorer_page = st.Page(page_journey, title="Journey explorer", icon=":material/timeline:",
+                        url_path="journey-explorer")
+injection_page = st.Page(page_injection, title="Fault injection", icon=":material/bug_report:",
+                         url_path="fault-injection")
+ai_page = st.Page(page_ai, title="AI rule drafting", icon=":material/auto_awesome:",
+                  url_path="ai-rule-drafting")
+
+navigation = st.navigation({
+    "Verification": [overview_page, requirements_page, explorer_page],
+    "Evaluation": [injection_page, ai_page],
+})
+
 st.sidebar.caption(
     "Data: ZTBus dataset, Widmer, Ritter and Onder, ETH Zurich, "
     "[doi.org/10.3929/ethz-b-000626723](https://doi.org/10.3929/ethz-b-000626723), "
     "CC BY 4.0. Processed by Scrutineer. Not affiliated with or endorsed by the authors."
 )
-PAGES[page]()
+navigation.run()
