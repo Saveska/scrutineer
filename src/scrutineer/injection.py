@@ -3,23 +3,12 @@ which checks catch them."""
 import numpy as np
 import pandas as pd
 
-from scrutineer.checks import (check_door_speed, check_door_traction, check_halt_brake,
-                               check_power_range, check_signal_gaps)
 from scrutineer.data import load_journey
+from scrutineer.engine import load_requirements, run_requirements
 
-RULES = {
-    "REQ-001": check_door_speed,
-    "REQ-002": check_halt_brake,
-    "REQ-003": check_door_traction,
-    "REQ-004": check_power_range,
-    "REQ-005": check_signal_gaps,
-}
-
-
-def run_all(df):
-    """Run every rule on one journey."""
-    return {rid: check(df) for rid, check in RULES.items()}
-
+def run_all(df, requirements):
+    """Run every requirement from the requirements file on one journey."""
+    return {r.requirement_id: r for r in run_requirements(df, requirements)}
 
 # ---------------------------------------------------------------------------
 # Helpers for choosing where a fault can go
@@ -132,26 +121,27 @@ def _overlaps(result, first, last):
     return any(v.first_row <= last and v.last_row >= first for v in result.violations)
 
 
-def run_campaign(files, trials_per_journey=5, seed=42):
+def run_campaign(files, requirements_path, trials_per_journey=5, seed=42):
     """Plant every fault several times in every journey and record what was caught."""
+    requirements = load_requirements(requirements_path)
     rng = np.random.default_rng(seed)
     rows = []
     for p in files:
         clean = load_journey(p)
-        baseline = run_all(clean)
+        baseline = run_all(clean, requirements)
         for fault in FAULTS:
             for _ in range(trials_per_journey):
                 planted = fault["inject"](clean, rng)
                 if planted is None:
                     break  # no suitable place in this journey
                 damaged, first, last = planted
-                results = run_all(damaged)
+                results = run_all(damaged, requirements)
                 target = fault["target"]
                 if target:
                     caught = _overlaps(results[target], first, last)
                 else:
                     caught = any(_overlaps(r, first, last) for r in results.values())
-                changed = [rid for rid in RULES
+                changed = [rid for rid in results
                            if rid != target and results[rid].status != baseline[rid].status]
                 rows.append({
                     "journey": p.name[:15],

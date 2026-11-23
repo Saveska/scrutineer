@@ -42,6 +42,7 @@ def run_requirements(df, requirements):
     return results
 
 
+# used in the notebook
 def run_on_journeys(files, requirements_path):
     """Run all requirements on all journeys. One row per journey and requirement."""
     requirements = load_requirements(requirements_path)
